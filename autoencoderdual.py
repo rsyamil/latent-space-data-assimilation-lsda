@@ -155,6 +155,25 @@ class Autoencoder:
 
         return encoded_m_reg
     
+    def regressorLSF(self, encoded_image):
+        #generalize this later
+        
+        _ = Dense(50)(encoded_image)
+        _ = LeakyReLU(alpha=0.3)(_)
+        
+        _ = Dense(40)(_)
+        _ = LeakyReLU(alpha=0.3)(_)
+        
+        _ = Dense(30)(_)
+        _ = LeakyReLU(alpha=0.3)(_)
+        
+        _ = Dense(20)(_)
+        _ = LeakyReLU(alpha=0.3)(_)
+        
+        encoded_d_reg = Dense(self.zd_dim)(_)
+
+        return encoded_d_reg
+    
     def encoder1D(self):
         
         input_dt = Input(shape=(self.dx_sz,))
@@ -484,10 +503,262 @@ class Autoencoder:
         zm_f_3 = self.d2m.layers[21](_)
         self.zd2zm = Model(zd_f_5, zm_f_3)
         
+    def train_autoencoder_dual_LSF(self, epoch=300, load=False):
+        #model autoencoder
+        input_m, encoded_m = self.encoder2D()
+        decoded_m = self.decoder2D(encoded_m)
+        #regressor
+        encoded_d_reg = self.regressorLSF(encoded_m)
+        #data decoder
+        decoded_d_reg = self.decoder1D(encoded_d_reg)
+        
+        self.m2d = Model(input_m, [decoded_m, decoded_d_reg])
+        opt = keras.optimizers.Adam(lr=1e-3)
+        self.m2d.compile(optimizer=opt, loss='mean_squared_error')
+        self.m2d.summary()
+        plot_model(self.m2d, to_file='m2d.png')
+        
+        #second data autoencoder as a placeholder
+        input_d, encoded_d = self.encoder1D()
+        decoded_d = self.decoder1D(encoded_d)
+        
+        self.d2d = Model(input_d, decoded_d)
+        opt = keras.optimizers.Adam(lr=1e-3)
+        self.d2d.compile(optimizer=opt, loss='mean_squared_error')
+        self.d2d.summary()
+        plot_model(self.d2d, to_file='d2d.png')
+        
+        #train the neural network alternatingly
+        totalEpoch = epoch
+        plot_losses1 = util.PlotLosses()
+        plot_losses2 = util.PlotLosses()
+        history1 = History()
+        history2 = History()
+        
+        AE_reg = np.zeros([totalEpoch, 6])
+        AE_d = np.zeros([totalEpoch, 2])
+        
+        m2d_idxs = [29, 31, 33, 35, 37, 39, 41, 43, 45]
+        d2d_idxs = [10, 11, 12, 13, 14, 15, 16, 17, 18]
+        
+        if not load:
+            for i in range(totalEpoch):
+                #train main reg model
+                self.m2d.fit(self.M, [self.M, self.D],        
+                            epochs=1,
+                            batch_size=128,
+                            shuffle=True,
+                            validation_split=0.2,
+                            callbacks=[plot_losses1, EarlyStopping(monitor='loss', patience=60), history1])
+            
+                #copy loss
+                AE_reg[i, :] = np.squeeze(np.asarray(list(history1.history.values())))
+            
+                #copy weights for data decoder only into the second model
+                for j in range(len(m2d_idxs)):
+                    self.d2d.layers[d2d_idxs[j]].set_weights(self.m2d.layers[m2d_idxs[j]].get_weights())
 
+                #train data AE
+                self.d2d.fit(self.D, self.D,        
+                            epochs=1,
+                            batch_size=128,
+                            shuffle=True,
+                            validation_split=0.2,
+                            callbacks=[plot_losses2, EarlyStopping(monitor='loss', patience=60), history2])
+            
+                #copy into the main model 
+                for j in range(len(m2d_idxs)):
+                    self.m2d.layers[m2d_idxs[j]].set_weights(self.d2d.layers[d2d_idxs[j]].get_weights())
+            
+                #copy loss
+                AE_d[i, :] = np.squeeze(np.asarray(list(history2.history.values())))
+           
+                #write to folder for every 10th epoch for monitoring
+                figs = util.plotAllLosses(AE_reg, AE_d)
+                figs.savefig('Dual_Losses.png')
+                
+            #save trained model
+            self.m2d.save('m2d.h5')
+            self.d2d.save('d2d.h5')
+        else:
+            #load an already trained model
+            #some bug here, self.AE_m2z and self.AE_z2m not working
+            #when model is loaded.
+            print("Trained model loaded")
+            self.m2d = load_model('m2d.h5')
+            self.d2d = load_model('d2d.h5')
+        
+        #set all functions (copy weights from layers, incase comp. graph dont exist)
+        input_m_f = Input(shape=(self.mx_sz, self.my_sz, self.mz_sz)) 
+        _ = self.m2d.layers[1](input_m_f)
+        for i in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42]:
+            _ = self.m2d.layers[i](_)
+        decoded_m_f = self.m2d.layers[44](_)
+        self.m2m = Model(input_m_f, decoded_m_f)
+        
+        input_m_f2 = Input(shape=(self.mx_sz, self.my_sz, self.mz_sz)) 
+        _ = self.m2d.layers[1](input_m_f2)
+        for i in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:
+            _ = self.m2d.layers[i](_)
+        encoded_m_f2 = self.m2d.layers[13](_)
+        self.m2zm = Model(input_m_f2, encoded_m_f2)
+        
+        input_dt_f = Input(shape=(self.dx_sz,))
+        _ = self.d2d.layers[1](input_dt_f)
+        for i in [2, 3, 4, 5, 6, 7, 8]:
+            _ = self.d2d.layers[i](_)
+        encoded_d_f = self.d2d.layers[9](_)
+        self.d2zd = Model(input_dt_f, encoded_d_f)
+        
+        zm_dec = Input(shape=(self.zm_dim, )) 
+        _ = self.m2d.layers[18](zm_dec)
+        for i in [20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42]:
+            _ = self.m2d.layers[i](_)
+        decoded_image_ = self.m2d.layers[44](_)
+        self.zm2m = Model(zm_dec, decoded_image_)
+                
+        zd_dec = Input(shape=(self.zd_dim, )) 
+        _ = self.m2d.layers[29](zd_dec)
+        for i in [31, 33, 35, 37, 39, 41, 43]:
+            _ = self.m2d.layers[i](_)
+        decoded_d_ = self.m2d.layers[45](_)
+        self.zd2d = Model(zd_dec, decoded_d_)
+                
+        zm_reg = Input(shape=(self.zm_dim, )) 
+        _ = self.m2d.layers[14](zm_reg)
+        for i in [15, 16, 17, 19, 21, 23, 25]:
+            _ = self.m2d.layers[i](_)
+        zd_reg = self.m2d.layers[27](_)
+        self.zm2zd = Model(zm_reg, zd_reg)
+        
+    def train_autoencoder_dual_LSF_var(self, epoch=300,  load=False):
+        #model autoencoder
+        input_m, encoded_m, zm_mean, zm_log_var  = self.encoder2D()
+        decoded_m = self.decoder2D(encoded_m)
+        #regressor
+        encoded_d_reg = self.regressorLSF(encoded_m)
+        #data decoder
+        decoded_d_reg = self.decoder1D(encoded_d_reg)
+        
+        #define the variational loss and mse loss (equal weighting)
+        def mvae_loss(input_m, decoded_m):
+            recons_loss = K.sum(mse(input_m, decoded_m))                
+            kl_loss = (- 0.5) * K.sum(1 + zm_log_var - K.square(zm_mean) - K.exp(zm_log_var), axis=-1)
+            return K.mean(recons_loss + kl_loss)
 
+        #add custom loss 
+        get_custom_objects().update({"mvae_loss": mvae_loss})
+        
+        self.m2d = Model(input_m, [decoded_m, decoded_d_reg])
+        opt = keras.optimizers.Adam(lr=1e-3)
+        self.m2d.compile(optimizer=opt, loss=mvae_loss)
+        self.m2d.summary()
+        plot_model(self.m2d, to_file='m2d_var.png')
+        
+        #second data autoencoder as a placeholder
+        input_d, encoded_d, zd_mean, zd_log_var = self.encoder1D()
+        decoded_d = self.decoder1D(encoded_d)
+        
+        #define the variational loss and mse loss (equal weighting)
+        def dvae_loss(input_d, decoded_d):
+            lambda_d = 0.1
+            recons_loss = K.sum(mse(input_d, decoded_d))                
+            kl_loss = (- 0.5) * K.sum(1 + zd_log_var - K.square(zd_mean) - K.exp(zd_log_var), axis=-1)
+            return K.mean(recons_loss + lambda_d*kl_loss)
+            
+        #add custom loss 
+        get_custom_objects().update({"dvae_loss": dvae_loss})
+        
+        self.d2d = Model(input_d, decoded_d)
+        opt = keras.optimizers.Adam(lr=1e-3)
+        self.d2d.compile(optimizer=opt, loss=dvae_loss)
+        self.d2d.summary()
+        plot_model(self.d2d, to_file='d2d_var.png')
+        
+        #train the neural network alternatingly
+        totalEpoch = epoch
+        plot_losses1 = util.PlotLosses()
+        plot_losses2 = util.PlotLosses()
+        history1 = History()
+        history2 = History()
+        
+        AE_reg = np.zeros([totalEpoch, 6])
+        AE_d = np.zeros([totalEpoch, 2])
+        
+        m2d_idxs = [32, 34, 36, 38, 40, 42, 44, 46, 48]
+        d2d_idxs = [13, 14, 15, 16, 17, 18, 19, 20, 21]
 
+        if not load:
+            for i in range(totalEpoch):
+                #train main reg model
+                self.m2d.fit(self.M, [self.M, self.D],        
+                            epochs=1,
+                            batch_size=128,
+                            shuffle=True,
+                            validation_split=0.2,
+                            callbacks=[plot_losses1, EarlyStopping(monitor='loss', patience=60), history1])
+            
+                #copy loss
+                AE_reg[i, :] = np.squeeze(np.asarray(list(history1.history.values())))
+            
+                #copy weights for data decoder only into the second model
+                for j in range(len(m2d_idxs)):
+                    self.d2d.layers[d2d_idxs[j]].set_weights(self.m2d.layers[m2d_idxs[j]].get_weights())
 
+                #train data AE
+                self.d2d.fit(self.D, self.D,        
+                            epochs=1,
+                            batch_size=128,
+                            shuffle=True,
+                            validation_split=0.2,
+                            callbacks=[plot_losses2, EarlyStopping(monitor='loss', patience=60), history2])
+            
+                #copy into the main model 
+                for j in range(len(m2d_idxs)):
+                    self.m2d.layers[m2d_idxs[j]].set_weights(self.d2d.layers[d2d_idxs[j]].get_weights())
+            
+                #copy loss
+                AE_d[i, :] = np.squeeze(np.asarray(list(history2.history.values())))
+           
+                #write to folder for every 10th epoch for monitoring
+                figs = util.plotAllLosses(AE_reg, AE_d)
+                figs.savefig('Dual_Losses_var.png')
+                
+            #save trained model
+            self.m2d.save('m2d_var.h5')
+            self.d2d.save('d2d_var.h5')
+        else:
+            #load an already trained model
+            #some bug here, self.AE_m2z and self.AE_z2m not working
+            #when model is loaded.
+            print("Trained model loaded")
+            self.m2d = load_model('m2d_var.h5')
+            self.d2d = load_model('d2d_var.h5')
+            
+        self.m2m = Model(input_m, decoded_m)
+        self.m2zm = Model(input_m, encoded_m)
+        self.d2zd = Model(input_d, encoded_d)
+        
+        zm_dec = Input(shape=(self.zm_dim, )) 
+        _ = self.m2d.layers[21](zm_dec)
+        for i in [23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45]:
+            _ = self.m2d.layers[i](_)
+        decoded_image_ = self.m2d.layers[47](_)
+        self.zm2m = Model(zm_dec, decoded_image_)
+                
+        zd_dec = Input(shape=(self.zd_dim, )) 
+        _ = self.m2d.layers[32](zd_dec)
+        for i in [34, 36, 38, 40, 42, 44, 46]:
+            _ = self.m2d.layers[i](_)
+        decoded_d_ = self.m2d.layers[48](_)
+        self.zd2d = Model(zd_dec, decoded_d_)
+        
+        zm_reg = Input(shape=(self.zm_dim, )) 
+        _ = self.m2d.layers[17](zm_reg)
+        for i in [18, 19, 20, 22, 24, 26, 28]:
+            _ = self.m2d.layers[i](_)
+        zd_reg = self.m2d.layers[30](_)
+        self.zm2zd = Model(zm_reg, zd_reg)
 
 
 def inspect_LSI(LSI, M_test, D_test, M_test_label):
@@ -618,10 +889,6 @@ def inspect_LSI(LSI, M_test, D_test, M_test_label):
         plt.grid(False), plt.xticks([]), plt.yticks([])
         f.savefig('readme/test_sigs_ref_invs_'+str(case)+'.png')
 
-
-
-
-
 def inspect_LSI_z(LSI, M_test, D_test, M_test_label):
     
     #get data latent variables
@@ -714,4 +981,231 @@ def inspect_LSI_z(LSI, M_test, D_test, M_test_label):
     plt.title('Test Reg vs Recons $z_{m}$')
     plt.tight_layout()
     fig.savefig('readme/train_test_zms_scatter.png')
+
+def inspect_LSF(LSF, M_test, D_test, M_test_label):
+    
+    #check reconstructions and regression for training 
+    M_train_hat = LSF.m2m.predict(LSF.M)
+    D_train_hat = LSF.d2d.predict(LSF.D)
+    D_train_hat_reg = LSF.m2d.predict(LSF.M)
+    
+    #check reconstructions and regression for testing
+    M_test_hat = LSF.m2m.predict(M_test)
+    D_test_hat = LSF.d2d.predict(D_test)
+    D_test_hat_reg = LSF.m2d.predict(M_test)
+    
+    #check scatters training
+    fig = plt.figure(figsize=(7, 2.5))
+    plt.subplot(1, 3, 1)
+    plt.scatter(LSF.M.flatten(), M_train_hat.flatten(), color='green', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Train-Model-Recons')
+    plt.subplot(1, 3, 2)
+    plt.scatter(LSF.D.flatten(), D_train_hat.flatten(), color='blue', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Train-Data-Recons')
+    plt.subplot(1, 3, 3)
+    plt.scatter(LSF.D.flatten(), D_train_hat_reg[1].flatten(), color='red', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Train-Data-Reg')
+    plt.tight_layout()
+    fig.savefig('readme/train_scatters.png')
+    
+    #check scatters testing
+    fig = plt.figure(figsize=(7, 2.5))
+    plt.subplot(1, 3, 1)
+    plt.scatter(M_test.flatten(), M_test_hat.flatten(), color='green', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Test-Model-Recons')
+    plt.subplot(1, 3, 2)
+    plt.scatter(D_test.flatten(), D_test_hat.flatten(), color='blue', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Test-Data-Recons')
+    plt.subplot(1, 3, 3)
+    plt.scatter(D_test.flatten(), D_test_hat_reg[1].flatten(), color='red', alpha=0.1)
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title('Test-Data-Reg')
+    plt.tight_layout()
+    fig.savefig('readme/test_scatters.png')
+    
+    #histograms of reconstruction for model (binary)
+    bb = np.linspace(-0.05, 1.0, 50)
+    fig = plt.figure(figsize=(7, 3))
+    plt.subplot(1, 2, 1)
+    plt.hist(M_test.flatten(), color='green', alpha=0.4, bins=bb)
+    plt.hist(M_test_hat.flatten(), color='green', alpha=0.9, hatch='//', edgecolor='black', histtype='step', bins=bb)
+    plt.tick_params(axis='both', which='both', bottom='on', top='off', labelbottom='on', right='off', left='off', labelleft='off')
+    plt.title('TestRMSE_'+str(round(RMSE(M_test, M_test_hat),4)))
+    plt.subplot(1, 2, 2)
+    plt.hist(LSF.M.flatten(), color='green', alpha=0.4, bins=bb)
+    plt.hist(M_train_hat.flatten(), color='green', alpha=0.9, hatch='//', edgecolor='black', histtype='step', bins=bb)
+    plt.tick_params(axis='both', which='both', bottom='on', top='off', labelbottom='on', right='off', left='off', labelleft='off')
+    plt.title('TrainRMSE_'+str(round(RMSE(LSF.M, M_train_hat),4)))
+    plt.tight_layout()
+    fig.savefig('readme/train_test_hists.png')
+    
+    #plot some test images with reconstructions
+    num_rows = 10
+    num_cols = 4
+    num_images = num_rows*num_cols
+    fig = plt.figure(figsize=(2*2*num_cols, 2*num_rows))
+    for i in range(num_images):
+        plt.subplot(num_rows, 2*num_cols, 2*i+1)
+        plt.grid(False)
+        plt.xticks([])
+        plt.yticks([])
+        plt.imshow(M_test[i], cmap='viridis', vmin=0, vmax=1)
+        if i < num_cols:
+            plt.title('Reference')
+        plt.subplot(num_rows, 2*num_cols, 2*i+2)
+        plt.grid(False)
+        plt.xticks([])
+        plt.yticks([])
+        plt.imshow(M_test_hat[i], cmap='viridis', vmin=0, vmax=1)
+        if i < num_cols:
+            plt.title('Recons.')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig('readme/test_ref_recons.png')
+    
+    #color by label
+    my_cmap = cm.get_cmap('jet')
+    my_norm = Normalize(vmin=0, vmax=9)
+    cs = my_cmap(my_norm(M_test_label))
+    
+    #plot some test cases with reconstructions and regression 
+    cases = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    for case in cases:
+        f = plt.figure(figsize=(12,3))
+        
+        #model (i.e. reference case)
+        ax = f.add_subplot(1, 4, 1)
+        plt.imshow(M_test[case, :, :, 0], cmap='viridis', vmin=0, vmax=1)
+        plt.title('Ref ('+str(M_test_label[case])+')')
+        plt.grid(False), plt.xticks([]), plt.yticks([])
+        
+        #model reconstruction (i.e. reference case)
+        ax = f.add_subplot(1, 4, 2)
+        plt.imshow(M_test_hat[case, :, :, 0], cmap='viridis', vmin=0, vmax=1)
+        plt.title('Recons ('+str(M_test_label[case])+')')
+        plt.grid(False), plt.xticks([]), plt.yticks([])
+              
+        #data and data reconstruction
+        ax = f.add_subplot(1, 4, 3)
+        plt.plot(D_test[case, :], ls=':', c='k', label='True', alpha=0.9)
+        plt.plot(D_test_hat[case, :], c=cs[M_test_label[case]], label='Recons.', alpha=0.4)
+        plt.ylim([0, 1])
+        plt.title('Data ('+str(M_test_label[case])+')_'+'RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat[case, :]),3)))
+        plt.legend()
+        
+        #data and data regression (i.e. forecast)
+        ax = f.add_subplot(1, 4, 4)
+        plt.plot(D_test[case, :], ls=':', c='k', label='True', alpha=0.9)
+        plt.plot(D_test_hat_reg[1][case, :], c=cs[M_test_label[case]], label='Pred.', alpha=0.4)
+        plt.ylim([0, 1])
+        plt.title('Data ('+str(M_test_label[case])+')_'+'RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat_reg[1][case, :]),3)))
+        plt.legend()
+        plt.tight_layout()
+        f.savefig('readme/test_sigs_ref_regs_'+str(case)+'.png')
+
+def inspect_LSF_z(LSF, M_test, D_test, M_test_label):
+    
+    #get data latent variables
+    zd_train = LSF.d2zd.predict(LSF.D)
+    zd_test = LSF.d2zd.predict(D_test)
+
+    #get model latent variables
+    zm_train = LSF.m2zm.predict(LSF.M)
+    zm_test = LSF.m2zm.predict(M_test)
+
+    #get model to data latent variables (forecast)
+    zd_train_reg = LSF.zm2zd.predict(zm_train)
+    zd_test_reg = LSF.zm2zd.predict(zm_test)
+
+    #plot distribution of zm (train) vs test
+    binmax = np.max(zm_train)
+    binmin = np.min(zm_train)
+    bb2 = np.linspace(binmin, binmax, 50)
+
+    fig = plt.figure(figsize=(12, 9))
+    for i in range(20):
+        plt.subplot(4, 5, i+1)
+        plt.hist(zm_train[:, i].flatten(), color='green', alpha=0.4, bins=bb2, density=True)
+        plt.hist(zm_test[:, i].flatten(), color='green', alpha=0.9, edgecolor='black', histtype='step', bins=bb2, density=True)
+        #plt.xlim(-1.5, 1.5)
+        #plt.xticks([])
+        plt.grid(False), plt.yticks([])
+        plt.title('$z_{m}$'+str(i+1))
+    plt.tight_layout()
+    fig.savefig('readme/train_test_zms.png')
+
+    #plot distribution of zd (train) vs test
+    binmax = np.max(zd_train)
+    binmin = np.min(zd_train)
+    bb1 = np.linspace(binmin, binmax, 50)
+
+    fig = plt.figure(figsize=(12, 9))
+    for i in range(16):
+        plt.subplot(4, 5, i+1)
+        plt.hist(zd_train[:, i].flatten(), color='blue', alpha=0.4, bins=bb1, density=True)
+        plt.hist(zd_test[:, i].flatten(), color='blue', alpha=0.9, edgecolor='black', histtype='step', bins=bb1, density=True)
+        #plt.xlim(-0.6, 0.6)
+        #plt.xticks([])
+        plt.grid(False), plt.yticks([])
+        plt.title('$z_{d}$'+str(i+1))
+    plt.tight_layout()
+    fig.savefig('readme/train_test_zds.png')
+
+    #plot distribution of zd (from recons) vs regression (from model) - training
+    fig = plt.figure(figsize=(12, 9))
+    for i in range(15):
+        plt.subplot(4, 5, i+1)
+        plt.hist(zd_train[:, i].flatten(), color='red', alpha=0.4, bins=bb1, density=True)
+        plt.hist(zd_train_reg[:, i].flatten(), color='red', alpha=0.9, edgecolor='black', histtype='step', bins=bb1, density=True)
+        #plt.xlim(-0.6, 0.6)
+        #plt.xticks([])
+        plt.grid(False), plt.yticks([])
+        plt.title('$z_{d}$'+str(i+1))
+    plt.tight_layout()
+    fig.savefig('readme/train_zds_reg.png')
+
+    #plot distribution of zd (from recons) vs regression (from model) - testing
+    fig = plt.figure(figsize=(12, 9))
+    for i in range(15):
+        plt.subplot(4, 5, i+1)
+        plt.hist(zd_test[:, i].flatten(), color='red', alpha=0.4, bins=bb1, density=True)
+        plt.hist(zd_test_reg[:, i].flatten(), color='red', alpha=0.9, edgecolor='black', histtype='step', bins=bb1, density=True)
+        #plt.xlim(-0.6, 0.6)
+        #plt.xticks([])
+        plt.grid(False), plt.yticks([])
+        plt.title('$z_{d}$'+str(i+1))
+    plt.tight_layout()
+    fig.savefig('readme/test_zds_reg.png')
+
+    #scatter plot
+    fig = plt.figure(figsize=(7, 3))
+    plt.subplot(1, 2, 1)
+    plt.scatter(zd_train.flatten(), zd_train_reg.flatten(), color='red', alpha=0.4)
+    plt.xlabel('$z_{d}$')
+    plt.ylabel('Reg-$z_{d}$')
+    plt.xlim([-4, 4])
+    plt.ylim([-4, 4])
+    plt.title('Train Reg vs Recons $z_{d}$')
+    plt.subplot(1, 2, 2)
+    plt.scatter(zd_test.flatten(), zd_test_reg.flatten(), color='red', alpha=0.4)
+    plt.xlabel('$z_{d}$')
+    plt.ylabel('Reg-$z_{d}$')
+    plt.xlim([-4, 4])
+    plt.ylim([-4, 4])
+    plt.title('Test Reg vs Recons $z_{d}$')
+    plt.tight_layout()
+    fig.savefig('readme/train_test_zds_scatter.png')
+
+
 
