@@ -16,7 +16,7 @@ To address these challenges, LSDA performs simultaneous dimensionality reduction
 
 ![Arch](/readme/arch.jpg)
 
-Once the architecture is trained, the low-dimensional vectors **z_m** represent the high-fidelity models **M** and **z_d** represent the simulated data **D**. The (potentially) computationally expensive forward model **G** is now represented by the regression model that maps **z_m** to **z_d**, as an efficient proxy model. Given an observation vector **d_obs**, the ensemble of priors **z_m** is iteratively assimilated using the following equation, where each corresponding **z_d** is obtained from the proxy model: 
+Once the architecture is trained, the low-dimensional vectors **z_m** represent the high-fidelity models **M** and **z_d** represent the simulated data **D**. The (potentially) computationally expensive forward model **G** is now represented by the regression model that maps **z_m** to **z_d**, as an efficient proxy model. Given an observation vector **d_obs**, the ensemble of priors **z_m** is iteratively assimilated using the following ESMDA equation, where each corresponding **z_d** is obtained from the proxy model: 
 
 ![Esmda](/readme/esmda_update_eqn.png)
 
@@ -36,9 +36,11 @@ The figures in this demo can be reproduced using this [notebook](https://github.
 
 ![Ref](/readme/test_sigs_ref_regs_demo.png)
 
-
+The histograms below show **z_d** (simulated and reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_d_obs**. The black unfilled bars denoted as "Update" represents the **z_d** from the ensemble of posteriors, and they agree with **z_d_obs**.
 
 ![zds](/readme/test_zds_demo.png)
+
+Similarly, the histograms below show **z_m** (reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_m_ref** of the reference **m** (assume known). The black unfilled bars denoted as "Update" represents the assimilated **z_m** (i.e. posteriors).
 
 ![zms](/readme/test_zms_demo.png)
 
