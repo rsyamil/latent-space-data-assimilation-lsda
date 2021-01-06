@@ -52,4 +52,8 @@ The mean and variance maps from the ensemble of priors and posteriors show that 
 
 ![prpost_meanvar](/readme/prpostmeanvar.png)
 
+The posteriors are fed to the operator **G** (i.e. **D=G(M)**) to validate if the solutions can sufficiently reproduce the **d_obs**. In the figure below, gray points/lines represent the entire testing dataset (priors) and the orange points/lines represent the predicted (by proxy, second plot) / simulated (third plot) **D** from the posteriors, where a significant reduction in uncertainty is obtained.
+
 ![prpost_d](/readme/test_d_post_demo.png)
+
+In practical applications, **d_obs** can be noisy and LSDA helps us to quickly obtain the ensemble of posteriors that can be accepted within the noise level, as well as understand the variations of spatial features within the posteriors, to improve the predictive power of the calibrated/assimilated models.
