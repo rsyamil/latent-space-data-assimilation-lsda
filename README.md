@@ -16,7 +16,7 @@ To address these challenges, LSDA performs simultaneous dimensionality reduction
 
 ![Arch](/readme/arch.jpg)
 
-Once the architecture is trained, the low-dimensional vectors **z_m** represent the high-fidelity models **M** and **z_d** represent the simulated data **D**. The (potentially) computationally expensive forward model **G** is now represented by the regression model that maps **z_m** to **z_d**, as an efficient proxy model. Given an observation vector **d_obs**, the ensemble of priors **z_m** is iteratively assimilated using the following equation, where the corresponding **z_d** is obtained from the proxy model: 
+Once the architecture is trained, the low-dimensional vectors **z_m** represent the high-fidelity models **M** and **z_d** represent the simulated data **D**. The (potentially) computationally expensive forward model **G** is now represented by the regression model that maps **z_m** to **z_d**, as an efficient proxy model. Given an observation vector **d_obs**, the ensemble of priors **z_m** is iteratively assimilated using the following equation, where each corresponding **z_d** is obtained from the proxy model: 
 
 ![Esmda](/readme/esmda_update_eqn.png)
 
@@ -29,3 +29,21 @@ The pseudocode is described here:
 ![Pseud](/readme/pseudocode.png)
 
 Note that when the variational loss is omitted, all the loss functions simply become squared-error terms (i.e. similar to [Latent-Space-Inversion, LSI](https://github.com/rsyamil/latent-space-inversion-lsi)). 
+
+## Demo of LSDA Workflow
+
+The figures in this demo can be reproduced using this [notebook](https://github.com/rsyamil/latent-space-data-assimilation-lsda/blob/main/lsda-demo.ipynb). In this demonstration, assume the following reference case of digit zero (the same reference case in [LSI](https://github.com/rsyamil/latent-space-inversion-lsi)) and no Gaussian prior constraint on the latent variables **z_m** and **z_d**. The first left image in the figure below shows the reference **m** and the second shows its reconstruction from the model autoencoder. The third plot is the **d_obs** with its reconstruction from the data autoencoder and the fourth plot shows the prediction/forecast from the proxy model.   
+
+![Ref](/readme/test_sigs_ref_regs_demo.png)
+
+
+
+![zds](/readme/test_zds_demo.png)
+
+![zms](/readme/test_zms_demo.png)
+
+![prpost_m](/readme/test_prior_posts_demo.png)
+
+![prpost_meanvar](/readme/prpostmeanvar.png)
+
+![prpost_d](/readme/test_d_post_demo.png)
