@@ -36,15 +36,19 @@ The figures in this demo can be reproduced using this [notebook](https://github.
 
 ![Ref](/readme/test_sigs_ref_regs_demo.png)
 
-The histograms below show **z_d** (simulated and reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_d_obs**. The black unfilled bars denoted as "Update" represents the **z_d** from the ensemble of posteriors, and they agree with **z_d_obs**.
+The histograms below show **z_d** (simulated and reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_d_obs**. The black unfilled bars denoted as "Update" represent the **z_d** from the ensemble of posteriors, and they agree with **z_d_obs**.
 
 ![zds](/readme/test_zds_demo.png)
 
-Similarly, the histograms below show **z_m** (reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_m_ref** of the reference **m** (assume known). The black unfilled bars denoted as "Update" represents the assimilated **z_m** (i.e. posteriors).
+Similarly, the histograms below show **z_m** (reduced from the entire initial prior ensemble) and the red line represents the latent variables **z_m_ref** of the reference **m** (assume known). The black unfilled bars denoted as "Update" represent the assimilated **z_m** (i.e. posteriors).
 
 ![zms](/readme/test_zms_demo.png)
 
+In the figure below, sample prior-posterior pairs from the ensemble are shown:
+
 ![prpost_m](/readme/test_prior_posts_demo.png)
+
+The mean and variance maps from the ensemble of priors and posteriors show that the information in **d_obs** has been assimilated into the ensemble of prior models.
 
 ![prpost_meanvar](/readme/prpostmeanvar.png)
 
