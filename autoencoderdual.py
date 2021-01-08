@@ -45,7 +45,7 @@ def sampling(args):
     dim = K.int_shape(z_mean)[1]
     
     epsilon = K.random_normal(shape=(batch, dim),
-                              mean=0., stddev=epsilon_std)
+                              mean=0., stddev=epsilon_std, seed=99)
     return z_mean + K.exp(z_log_sigma) * epsilon
     
 class Autoencoder:
@@ -694,7 +694,7 @@ class Autoencoder:
                 self.m2d.fit(self.M, [self.M, self.D],        
                             epochs=1,
                             batch_size=128,
-                            shuffle=True,
+                            shuffle=False,
                             validation_split=0.2,
                             callbacks=[plot_losses1, EarlyStopping(monitor='loss', patience=60), history1])
             
@@ -709,7 +709,7 @@ class Autoencoder:
                 self.d2d.fit(self.D, self.D,        
                             epochs=1,
                             batch_size=128,
-                            shuffle=True,
+                            shuffle=False,
                             validation_split=0.2,
                             callbacks=[plot_losses2, EarlyStopping(monitor='loss', patience=60), history2])
             
