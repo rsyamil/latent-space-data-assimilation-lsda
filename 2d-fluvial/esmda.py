@@ -26,7 +26,7 @@ class ESMDA:
         
         zd_obs_ens = self.proxy.d2zd.predict(obsmatrix.T)
         
-        robs = 0.10 * np.ones((self.d_obs.shape[0], 1)) 
+        robs = 0.01 * np.ones((self.d_obs.shape[0], 1)) 
         errmatrix = np.multiply(obsmatrix, npmatlib.repmat(robs, 1, nens))
         errmatrix = np.multiply(errmatrix, np.random.normal(0, 1, (nd, nens)))
         obsmatrix = obsmatrix + errmatrix
