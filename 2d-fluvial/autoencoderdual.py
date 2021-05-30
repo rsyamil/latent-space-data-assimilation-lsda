@@ -982,7 +982,7 @@ def inspect_LSI_z(LSI, M_test, D_test, M_test_label):
     plt.tight_layout()
     fig.savefig('readme/train_test_zms_scatter.png')
 
-def inspect_LSF(LSF, M_test, D_test, M_test_label):
+def inspect_LSF(LSF, M_test, D_test):
     
     #check reconstructions and regression for training 
     M_train_hat = LSF.m2m.predict(LSF.M)
@@ -1060,24 +1060,19 @@ def inspect_LSF(LSF, M_test, D_test, M_test_label):
         plt.grid(False)
         plt.xticks([])
         plt.yticks([])
-        plt.imshow(M_test[i], cmap='viridis', vmin=0, vmax=1)
+        plt.imshow(M_test[i], cmap=plt.cm.GnBu, vmin=0, vmax=1)
         if i < num_cols:
             plt.title('Reference')
         plt.subplot(num_rows, 2*num_cols, 2*i+2)
         plt.grid(False)
         plt.xticks([])
         plt.yticks([])
-        plt.imshow(M_test_hat[i], cmap='viridis', vmin=0, vmax=1)
+        plt.imshow(M_test_hat[i], cmap=plt.cm.GnBu, vmin=0, vmax=1)
         if i < num_cols:
             plt.title('Recons.')
     plt.tight_layout()
     plt.show()
     fig.savefig('readme/test_ref_recons.png')
-    
-    #color by label
-    my_cmap = cm.get_cmap('jet')
-    my_norm = Normalize(vmin=0, vmax=9)
-    cs = my_cmap(my_norm(M_test_label))
     
     #plot some test cases with reconstructions and regression 
     cases = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -1086,35 +1081,35 @@ def inspect_LSF(LSF, M_test, D_test, M_test_label):
         
         #model (i.e. reference case)
         ax = f.add_subplot(1, 4, 1)
-        plt.imshow(M_test[case, :, :, 0], cmap='viridis', vmin=0, vmax=1)
-        plt.title('Ref ('+str(M_test_label[case])+')')
+        plt.imshow(M_test[case, :, :, 0], cmap=plt.cm.GnBu, vmin=0, vmax=1)
+        plt.title('Ref')
         plt.grid(False), plt.xticks([]), plt.yticks([])
         
         #model reconstruction (i.e. reference case)
         ax = f.add_subplot(1, 4, 2)
-        plt.imshow(M_test_hat[case, :, :, 0], cmap='viridis', vmin=0, vmax=1)
-        plt.title('Recons ('+str(M_test_label[case])+')')
+        plt.imshow(M_test_hat[case, :, :, 0], cmap=plt.cm.GnBu, vmin=0, vmax=1)
+        plt.title('Recons')
         plt.grid(False), plt.xticks([]), plt.yticks([])
               
         #data and data reconstruction
         ax = f.add_subplot(1, 4, 3)
         plt.plot(D_test[case, :], ls=':', c='k', label='True', alpha=0.9)
-        plt.plot(D_test_hat[case, :], c=cs[M_test_label[case]], label='Recons.', alpha=0.4)
+        plt.plot(D_test_hat[case, :], c='b', label='Recons.', alpha=0.4)
         plt.ylim([0, 1])
-        plt.title('Data ('+str(M_test_label[case])+')_'+'RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat[case, :]),3)))
+        plt.title('Data RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat[case, :]),3)))
         plt.legend()
         
         #data and data regression (i.e. forecast)
         ax = f.add_subplot(1, 4, 4)
         plt.plot(D_test[case, :], ls=':', c='k', label='True', alpha=0.9)
-        plt.plot(D_test_hat_reg[1][case, :], c=cs[M_test_label[case]], label='Pred.', alpha=0.4)
+        plt.plot(D_test_hat_reg[1][case, :], c='b', label='Pred.', alpha=0.4)
         plt.ylim([0, 1])
-        plt.title('Data ('+str(M_test_label[case])+')_'+'RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat_reg[1][case, :]),3)))
+        plt.title('Data RMSE_'+str(round(RMSE(D_test[case, :], D_test_hat_reg[1][case, :]),3)))
         plt.legend()
         plt.tight_layout()
         f.savefig('readme/test_sigs_ref_regs_'+str(case)+'.png')
 
-def inspect_LSF_z(LSF, M_test, D_test, M_test_label):
+def inspect_LSF_z(LSF, M_test, D_test):
     
     #get data latent variables
     zd_train = LSF.d2zd.predict(LSF.D)

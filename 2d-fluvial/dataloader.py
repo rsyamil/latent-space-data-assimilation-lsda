@@ -92,6 +92,8 @@ class DataLoader:
 		'''
 		d_dim = self.sim.shape[-1]
 		ds = np.zeros([ms.shape[0], d_dim])
+		
+		ms = np.where(ms<0.5, 0, 1)
 
 		for i in range(ms.shape[0]):
 			print("Running simulation ", i)
