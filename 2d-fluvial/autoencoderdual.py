@@ -50,7 +50,7 @@ def sampling(args):
     
 class Autoencoder:
 
-    def __init__(self, M, D, zm_dim=64, zd_dim=16, variational=False, name=[]):
+    def __init__(self, M, D, zm_dim=256, zd_dim=128, variational=False, name=[]):
         self.name = name
         self.field = name
         
@@ -115,8 +115,8 @@ class Autoencoder:
 
     def decoder2D(self, encoded_image):
         #image decoder
-        _ = Dense((256))(encoded_image)
-        _ = Reshape((4, 4, 16))(_)
+        _ = Dense((2704))(encoded_image)
+        _ = Reshape((13, 13, 16))(_)
 
         _ = Conv2D(16, (5, 5), padding='same')(_)
         _ = BatchNormalization()(_)
@@ -158,16 +158,16 @@ class Autoencoder:
     def regressorLSF(self, encoded_image):
         #generalize this later
         
-        _ = Dense(50)(encoded_image)
+        _ = Dense(250)(encoded_image)
         _ = LeakyReLU(alpha=0.3)(_)
         
-        _ = Dense(40)(_)
+        _ = Dense(200)(_)
         _ = LeakyReLU(alpha=0.3)(_)
         
-        _ = Dense(30)(_)
+        _ = Dense(150)(_)
         _ = LeakyReLU(alpha=0.3)(_)
         
-        _ = Dense(20)(_)
+        _ = Dense(120)(_)
         _ = LeakyReLU(alpha=0.3)(_)
         
         encoded_d_reg = Dense(self.zd_dim)(_)
@@ -178,16 +178,16 @@ class Autoencoder:
         
         input_dt = Input(shape=(self.dx_sz,))
         
-        _ = Dense(100)(input_dt)
+        _ = Dense(500)(input_dt)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(80)(_)
+        _ = Dense(300)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(60)(_)
+        _ = Dense(200)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(40)(_)
+        _ = Dense(100)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
         if not self.variational:
@@ -203,16 +203,16 @@ class Autoencoder:
     
     def decoder1D(self, encoded_d):
         
-        _ = Dense(40)(encoded_d)
+        _ = Dense(100)(encoded_d)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(60)(_)
+        _ = Dense(200)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(80)(_)
+        _ = Dense(300)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
-        _ = Dense(100)(_)
+        _ = Dense(500)(_)
         _ = LeakyReLU(alpha=0.3)(_)
 
         decoded_d = Dense(self.dx_sz)(_)
