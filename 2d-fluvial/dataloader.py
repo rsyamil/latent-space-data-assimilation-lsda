@@ -39,7 +39,9 @@ class DataLoader:
 		return (y - self.y_min)/(self.y_max - self.y_min)
 		
 	def normalize_data_(self, y):
-		return (y - self.y_min)/(self.y_max - self.y_min)
+		y_min = self.y_min
+		y_max = self.y_max
+		return (y - y_min)/(y_max - y_min)
 		
 	def load_data(self):
 		'''create (simulate) a synthetic "time series" data vector (y) for each of the input (x) such that y=Gx and G is linear
