@@ -46,7 +46,8 @@ In the figure below, sample prior-posterior pairs from the ensemble are shown. T
 
 The mean and variance maps from the ensemble of priors and posteriors show that the information in **d_obs** has been assimilated into the ensemble of prior models.
 
-![prpost_meanvar](/2d-fluvial/readme/prpostmeanvar.png)
+![pr_meanvar](/2d-fluvial/readme/test_mean_var_prior_demo.png)
+![post_meanvar](/2d-fluvial/readme/test_mean_var_post_demo.png)
 
 The posteriors are fed to the operator **G** (i.e. **D=G(M)**) to validate if the solutions can sufficiently reproduce the **d_obs**. In the figure below, gray points/lines represent the entire testing dataset (priors) and the orange points/lines represent the predicted (by proxy, second plot) / simulated (third plot) **D** from the posteriors, where a significant reduction in uncertainty is obtained.
 
